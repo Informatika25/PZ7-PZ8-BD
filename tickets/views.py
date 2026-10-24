@@ -15,7 +15,7 @@ from .serializers import (
 @login_required()
 @ensure_csrf_cookie
 def dashboard(request):
-    return render(request, "tickets/dashboard.html")
+    return render(request, "dashboard.html")
 
 class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
     #Добавили сами
