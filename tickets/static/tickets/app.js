@@ -1,3 +1,4 @@
+
 const csrfToken = document.querySelector(
     "[name=csrfmiddlewaretoken]"
 ).value;
@@ -22,9 +23,30 @@ async function apiRequest(url, options = {}) {
     if (!response.ok) {
         const detail = data?.detail;
 
+        let errorMessage = detail;
+
+        if (!errorMessage && data) {
+            errorMessage = Object.entries(data)
+                .map(([field, errors]) => {
+                    const fieldNames = {
+                        title: "Название",
+                        category: "Категория",
+                        status: "Статус",
+                        description: "Описание"
+                    };
+
+                    const fieldName = fieldNames[field] || field;
+                    const errorText = Array.isArray(errors)
+                        ? errors.join(" ")
+                        : String(errors);
+
+                    return `${fieldName}: ${errorText}`;
+                })
+                .join(" ");
+        }
+
         throw new Error(
-            detail ||
-            (data ? JSON.stringify(data) : "Ошибка выполнения запроса")
+            errorMessage || "Ошибка выполнения запроса"
         );
     }
 
@@ -66,6 +88,21 @@ function getStatusClass(status) {
     return classes[status] || "bg-secondary-lt";
 }
 
+// Допустимые переходы статусов по заданию
+function getAvailableStatuses(status) {
+    const nextStatuses = {
+        new: [
+            { value: "progress", label: "В работе" }
+        ],
+        progress: [
+            { value: "done", label: "Выполнена" }
+        ],
+        done: []
+    };
+
+    return nextStatuses[status] || [];
+}
+
 async function loadCategories() {
     const categories = await apiRequest("/api/categories/");
 
@@ -79,6 +116,7 @@ async function loadCategories() {
     }
 }
 
+// Создание заявки
 form.addEventListener("submit", async (event) => {
     event.preventDefault();
 
@@ -92,6 +130,7 @@ form.addEventListener("submit", async (event) => {
         });
 
         titleInput.value = "";
+
         showMessage("Заявка успешно создана");
 
         await loadTickets();
@@ -103,6 +142,7 @@ form.addEventListener("submit", async (event) => {
     }
 });
 
+// Загрузка заявок
 async function loadTickets() {
     loading.hidden = false;
 
@@ -129,11 +169,13 @@ async function loadTickets() {
         }
 
         for (const ticket of tickets) {
+            // Строка заявки
             const row = document.createElement("div");
             row.className =
                 "d-flex justify-content-between align-items-center " +
                 "border-bottom py-3 gap-3";
 
+            // Название и категория
             const info = document.createElement("div");
             info.className = "flex-fill";
 
@@ -143,73 +185,107 @@ async function loadTickets() {
 
             const category = document.createElement("div");
             category.className = "text-secondary small";
-            category.textContent = "Категория: " + (ticket.category_name || "Не указана");
+            category.textContent =
+                "Категория: " +
+                (ticket.category_name || "Не указана");
 
             info.append(title, category);
 
+            // Правая часть строки
             const actions = document.createElement("div");
             actions.className =
                 "d-flex align-items-center justify-content-end " +
                 "gap-2 flex-wrap";
 
+            // Текущий статус
             const status = document.createElement("span");
             status.className =
                 "badge " + getStatusClass(ticket.status);
             status.textContent = getStatusLabel(ticket.status);
 
-            const statusButton = document.createElement("button");
-            statusButton.type = "button";
-            statusButton.className =
-                "btn btn-outline-primary btn-sm";
-            statusButton.textContent = "Изменить статус";
+            // Выпадающий список допустимых статусов
+            const availableStatuses =
+                getAvailableStatuses(ticket.status);
 
-            statusButton.addEventListener("click", async () => {
-                const availableStatuses = [
-                    { value: "new", label: "Новая" },
-                    { value: "progress", label: "В работе" },
-                    { value: "done", label: "Выполнена" }
-                ].filter(item => item.value !== ticket.status);
+            if (availableStatuses.length > 0) {
+                const statusGroup = document.createElement("div");
+                statusGroup.className = "d-flex gap-1";
 
-                if (availableStatuses.length === 0) {
-                    showMessage("У заявки уже установлен этот статус");
-                    return;
-                }
-
-                const choice = prompt(
-                    "Выберите новый статус:\n" +
-                    availableStatuses.map(
-                        (item, index) =>
-                            `${index + 1} — ${item.label}`
-                    ).join("\n")
+                const statusSelect = document.createElement("select");
+                statusSelect.className = "form-select form-select-sm";
+                statusSelect.setAttribute(
+                    "aria-label",
+                    "Новый статус заявки"
                 );
 
-                if (choice === null || choice.trim() === "") {
-                    return;
+                const placeholder = document.createElement("option");
+                placeholder.value = "";
+                placeholder.textContent = "Выберите статус";
+                placeholder.selected = true;
+                statusSelect.append(placeholder);
+
+                for (const item of availableStatuses) {
+                    const option = document.createElement("option");
+                    option.value = item.value;
+                    option.textContent = item.label;
+                    statusSelect.append(option);
                 }
 
-                const selected = availableStatuses[
-                    Number(choice) - 1
-                ];
+                const saveStatusButton =
+                    document.createElement("button");
 
-                if (!selected) {
-                    showMessage(
-                        "Введите номер из предложенного списка",
-                        true
-                    );
-                    return;
-                }
+                saveStatusButton.type = "button";
+                saveStatusButton.className =
+                    "btn btn-outline-primary btn-sm";
+                saveStatusButton.textContent = "Сохранить";
 
-                try {
-                    await changeStatus(ticket.id, selected.value);
-                    showMessage("Статус заявки успешно изменён");
-                } catch (error) {
-                    showMessage(
-                        "Не удалось изменить статус: " + error.message,
-                        true
-                    );
-                }
-            });
+                saveStatusButton.addEventListener(
+                    "click",
+                    async () => {
+                        const newStatus = statusSelect.value;
 
+                        if (!newStatus) {
+                            showMessage(
+                                "Сначала выберите новый статус",
+                                true
+                            );
+                            return;
+                        }
+
+                        saveStatusButton.disabled = true;
+
+                        try {
+                            await changeStatus(
+                                ticket.id,
+                                newStatus
+                            );
+
+                            showMessage(
+                                "Статус заявки успешно изменён"
+                            );
+                        } catch (error) {
+                            showMessage(
+                                "Не удалось изменить статус: " +
+                                error.message,
+                                true
+                            );
+                        } finally {
+                            saveStatusButton.disabled = false;
+                        }
+                    }
+                );
+
+                statusGroup.append(
+                    statusSelect,
+                    saveStatusButton
+                );
+
+                actions.append(status, statusGroup);
+            } else {
+                actions.append(status);
+            }
+
+            // Кнопка удаления
             const deleteButton = document.createElement("button");
             deleteButton.type = "button";
             deleteButton.className =
@@ -217,6 +293,8 @@ async function loadTickets() {
             deleteButton.textContent = "Удалить";
 
             deleteButton.addEventListener("click", async () => {
+                deleteButton.disabled = true;
+
                 try {
                     const deleted = await deleteTicket(
                         ticket.id,
@@ -228,13 +306,17 @@ async function loadTickets() {
                     }
                 } catch (error) {
                     showMessage(
-                        "Не удалось удалить заявку: " + error.message,
+                        "Не удалось удалить заявку: " +
+                        error.message,
                         true
                     );
+                } finally {
+                    deleteButton.disabled = false;
                 }
             });
 
-            actions.append(status, statusButton, deleteButton);
+            actions.append(deleteButton);
+
             row.append(info, actions);
             list.append(row);
         }
@@ -248,20 +330,22 @@ async function loadTickets() {
     }
 }
 
+// Фильтрация по статусу
 filter.addEventListener("change", loadTickets);
 
+// Изменение статуса
 async function changeStatus(ticketId, newStatus) {
     await apiRequest(`/api/tickets/${ticketId}/`, {
         method: "PATCH",
         body: JSON.stringify({
             status: newStatus
-
-})
+        })
     });
 
     await loadTickets();
 }
 
+// Удаление заявки с подтверждением
 async function deleteTicket(ticketId, ticketTitle) {
     const confirmed = confirm(
         `Вы точно хотите удалить заявку «${ticketTitle}»?`
@@ -276,9 +360,11 @@ async function deleteTicket(ticketId, ticketTitle) {
     });
 
     await loadTickets();
+
     return true;
 }
 
+// Инициализация страницы
 async function initialize() {
     try {
         await loadCategories();

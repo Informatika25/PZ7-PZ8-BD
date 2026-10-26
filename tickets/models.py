@@ -17,7 +17,7 @@ class Ticket(models.Model):
         DONE = "done", "Выполнена"
 
     title = models.CharField(max_length=20)
-    description = models.TextField(blank=15)
+    description = models.TextField(blank=True)
 
     category = models.ForeignKey(
         Category,
