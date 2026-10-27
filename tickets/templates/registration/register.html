@@ -14,7 +14,7 @@
         <div class="container container-tight py-4">
             <div class="text-center mb-4">
                 <a href="/" class="navbar-brand navbar-brand-autodark">
-                    <span class="fs-1 fw-bold text-primary">TicketsApp</span>
+
                 </a>
             </div>
 
@@ -44,7 +44,7 @@
                     {% endif %}
 
                     <div class="mb-3">
-                        <label class="form-label required" for="{{ form.username.id_for_label }}">
+                        <label class="form-label" for="{{ form.username.id_for_label }}">
                             Имя пользователя
                         </label>
                         {{ form.username }}
@@ -55,13 +55,10 @@
                                 {% endfor %}
                             </div>
                         {% endif %}
-                        {% if form.username.help_text %}
-                            <small class="form-hint">{{ form.username.help_text|safe }}</small>
-                        {% endif %}
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label required" for="{{ form.password1.id_for_label }}">
+                        <label class="form-label" for="{{ form.password1.id_for_label }}">
                             Пароль
                         </label>
                         {{ form.password1 }}
@@ -71,9 +68,6 @@
                                     <div>{{ error }}</div>
                                 {% endfor %}
                             </div>
-                        {% endif %}
-                        {% if form.password1.help_text %}
-                            <small class="form-hint">{{ form.password1.help_text|safe }}</small>
                         {% endif %}
                     </div>
 
@@ -88,9 +82,6 @@
                                     <div>{{ error }}</div>
                                 {% endfor %}
                             </div>
-                        {% endif %}
-                        {% if form.password2.help_text %}
-                            <small class="form-hint">{{ form.password2.help_text|safe }}</small>
                         {% endif %}
                     </div>
 
